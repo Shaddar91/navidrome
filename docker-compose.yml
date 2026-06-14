@@ -1,0 +1,30 @@
+#Navidrome - self-hosted, Subsonic-compatible music streamer ("personal Spotify")
+#LOCAL ONLY: published port bound to 127.0.0.1. No separate DB (embedded SQLite on /data).
+services:
+  navidrome:
+    image: deluan/navidrome:0.61.2  #pinned; never :latest or :develop
+    container_name: navidrome
+    restart: unless-stopped
+    #match the UID:GID that owns ./navidrome-data on the host (avoids DB write/permission errors)
+    user: "1000:1000"
+    ports:
+      - "127.0.0.1:4533:4533"  #loopback only - NO public exposure
+    environment:
+      ND_MUSICFOLDER: /music
+      ND_DATAFOLDER: /data
+      ND_PORT: "4533"
+      ND_LOGLEVEL: ${ND_LOGLEVEL:-info}
+      ND_SCANNER_SCHEDULE: ${ND_SCANNER_SCHEDULE:-1h}  #note: renamed from the dead ND_SCANSCHEDULE
+      ND_SESSIONTIMEOUT: ${ND_SESSIONTIMEOUT:-48h}
+      ND_ENABLEINSIGHTSCOLLECTOR: "false"  #opt OUT of anonymous telemetry (defaults true)
+      #optional: encrypt stored external-service creds with a key you control (set in .env)
+      ND_PASSWORDENCRYPTIONKEY: ${ND_PASSWORDENCRYPTIONKEY:-}
+    volumes:
+      - ./navidrome-data:/data            #READ-WRITE; embedded SQLite DB + cache - MUST persist
+      - ${ND_MUSIC_HOST_DIR:-./music}:/music:ro  #READ-ONLY; your music library - :ro is canonical
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:4533/ping"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
